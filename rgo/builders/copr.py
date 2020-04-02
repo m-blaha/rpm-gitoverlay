@@ -106,10 +106,18 @@ class CoprBuilder(object):
         rpms = []
         for task in build.get_build_tasks():
             url_prefix = task.result_dir_url
-            resp = requests.get(url_prefix)
-            if resp.status_code != 200:
-                raise Exception("Failed to fetch {!r}: {!s}".format(url_prefix, resp.text))
-            soup = bs4.BeautifulSoup(resp.text, "lxml")
+
+            # hack to enforce IPv4 as IPv6 connection is failing
+            import subprocess
+            process = subprocess.Popen(
+                ["curl", "-fsSL4", url_prefix],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            stdout, stderr = process.communicate()
+            if process.returncode != 0:
+                raise Exception("Failed to fetch {!r}: {!s}".format(url_prefix, stdout))
+            soup = bs4.BeautifulSoup(stdout, "lxml")
             for link in soup.find_all("a", href=True):
                 href = link["href"]
                 if href.endswith(".rpm") and not href.endswith(".src.rpm"):
